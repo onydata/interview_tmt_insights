@@ -6,11 +6,22 @@ from interview.inventory.models import Inventory, InventoryLanguage, InventoryTa
 from interview.inventory.schemas import InventoryMetaData
 from interview.inventory.serializers import InventoryLanguageSerializer, InventorySerializer, InventoryTagSerializer, InventoryTypeSerializer
 
+from interview.core.utils import convert_date_from_request
+
 
 class InventoryListCreateView(APIView):
     queryset = Inventory.objects.all()
     serializer_class = InventorySerializer
-    
+
+    def filter_queryset(self, queryset):
+        if "created_at" in self.request.query_params:
+            queryset = queryset.filter(
+                created_at__gt=convert_date_from_request(
+                    self.request.query_params["created_at"]
+                )
+            )
+        return queryset
+
     def post(self, request: Request, *args, **kwargs) -> Response:
         try:
             metadata = InventoryMetaData(**request.data['metadata'])
@@ -27,7 +38,13 @@ class InventoryListCreateView(APIView):
         return Response(serializer.data, status=201)
     
     def get(self, request: Request, *args, **kwargs) -> Response:
-        serializer = self.serializer_class(self.get_queryset(), many=True)
+        """
+        Possible query params: created_at
+        """
+        serializer = self.serializer_class(
+            self.filter_queryset(self.get_queryset()),
+            many=True,
+        )
         
         return Response(serializer.data, status=200)
     
